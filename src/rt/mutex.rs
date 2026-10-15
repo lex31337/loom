@@ -42,8 +42,12 @@ impl Mutex {
     }
 
     pub(crate) fn acquire_lock(&self, location: Location) {
-        self.state.branch_acquire(self.is_locked(), location);
-        assert!(self.post_acquire(), "expected to be able to acquire lock");
+        loop {
+            self.state.branch_acquire(self.is_locked(), location);
+            if self.post_acquire() {
+                return;
+            }
+        }
     }
 
     pub(crate) fn try_acquire_lock(&self, location: Location) -> bool {

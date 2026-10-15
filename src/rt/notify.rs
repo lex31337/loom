@@ -85,6 +85,14 @@ impl Notify {
     }
 
     pub(crate) fn wait(self, location: Location) {
+        loop {
+            if self.wait_once(location) {
+                return;
+            }
+        }
+    }
+
+    fn wait_once(self, location: Location) -> bool {
         let (notified, spurious) = rt::execution(|execution| {
             let spurious = if self.state.get(&execution.objects).might_spur() {
                 execution.path.branch_spurious()
@@ -104,7 +112,7 @@ impl Notify {
 
         if spurious {
             rt::yield_now();
-            return;
+            return true;
         }
 
         if notified {
@@ -119,7 +127,9 @@ impl Notify {
             trace!(state = ?self.state, "Notify::wait 2");
             let state = self.state.get_mut(&mut execution.objects);
 
-            assert!(state.notified);
+            if !state.notified {
+                return false;
+            }
 
             state.synchronize.sync_load(&mut execution.threads, Acquire);
 
@@ -129,7 +139,8 @@ impl Notify {
             }
 
             state.notified = false;
-        });
+            true
+        })
     }
 }
 

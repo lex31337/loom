@@ -101,8 +101,13 @@ impl Channel {
     }
 
     pub(crate) fn recv(&self, location: Location) {
-        self.state
-            .branch_disable(Action::MsgRecv, self.is_empty(), location);
+        loop {
+            self.state
+                .branch_disable(Action::MsgRecv, self.is_empty(), location);
+            if !self.is_empty() {
+                break;
+            }
+        }
         super::execution(|execution| {
             let state = self.state.get_mut(&mut execution.objects);
             let thread_id = execution.threads.active_id();
