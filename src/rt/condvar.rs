@@ -52,8 +52,11 @@ impl Condvar {
         // Release the lock
         mutex.release_lock();
 
-        // Disable the current thread
-        rt::park(location);
+        // Block on the condvar itself rather than on `rt::park`: a bare
+        // `Thread::unpark` must not resume this wait (std keeps that token
+        // for a later park), and a waiter entry must never go stale by
+        // returning without having blocked.
+        self.state.branch_acquire(true, location);
 
         // Acquire the lock again
         mutex.acquire_lock(location);
@@ -72,7 +75,7 @@ impl Condvar {
             trace!(state = ?self.state, ?thread, "Condvar::notify_one");
 
             if let Some(thread) = thread {
-                execution.threads.unpark(thread);
+                execution.threads.wake(thread);
             }
         })
     }
@@ -87,7 +90,7 @@ impl Condvar {
             trace!(state = ?self.state, threads = ?state.waiters, "Condvar::notify_all");
 
             for thread in state.waiters.drain(..) {
-                execution.threads.unpark(thread);
+                execution.threads.wake(thread);
             }
         })
     }

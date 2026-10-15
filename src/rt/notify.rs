@@ -78,7 +78,7 @@ impl Notify {
                 if obj == Some(self.state.erase()) {
                     trace!(state = ?self.state, thread = ?thread.id, "Notify::notify");
 
-                    thread.unpark(active);
+                    thread.wake(active);
                 }
             }
         });
